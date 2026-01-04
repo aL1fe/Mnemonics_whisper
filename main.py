@@ -54,24 +54,17 @@ app = FastAPI()
 
 
 async def transcribe_file(file_path):
-    start_time = time.time()
     with torch.inference_mode():
         result = pipe(file_path)  # Transcribe file
-    execution_time = round((time.time() - start_time), 2)
-    return result, execution_time
-
+    return result
 
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile):
     try:
         file_path = await save_file(file, "incoming_files")
-        result, execution_time = await transcribe_file(file_path)
-        return {
-                "TranscribedRecord": result["text"], # type: ignore
-                "Timestamps": result.get("chunks", []), # type: ignore
-                "executionTime": f"{execution_time} sec"
-            }
+        result = await transcribe_file(file_path)
+        return {"TranscribedRecord": result["text"]} # type: ignore
     except Exception as e:
         return {"Error": str(e)}
     
