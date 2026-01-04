@@ -1,0 +1,81 @@
+from fastapi import FastAPI, UploadFile
+import torch
+import torchaudio
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import time
+import torch.version
+
+from file_utils import save_file
+
+
+if torch.cuda.is_available():
+    device = "cuda:0"
+    num_devices = torch.cuda.device_count()
+    print(f"CUDA is available. Total devices: {num_devices}")
+    print(f"Torch CUDA version {torch.version.cuda}")
+    for i in range(num_devices):
+        device_name = torch.cuda.get_device_name(i)
+        print(f"Device {i}: {device_name}")
+        print(f" - CUDA Capability: {torch.cuda.get_device_capability(i)}")
+else:
+    device = "cpu"
+    print("CUDA is not available. Using CPU.")
+
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+# model_id = "openai/whisper-large-v3"
+# model_id = "openai/whisper-tiny"
+model_id = ".\\models\\models--openai--whisper-tiny\\snapshots\\169d4a4341b33bc18d8881c4b69c2e104e1cc0af"
+
+model = AutoModelForSpeechSeq2Seq.from_pretrained(
+    model_id, 
+    dtype=torch_dtype, 
+    low_cpu_mem_usage=True, 
+    use_safetensors=True
+)
+model.to(device)
+model.generation_config.language = "en"
+model.generation_config.task = "transcribe"
+
+processor = AutoProcessor.from_pretrained(model_id)
+
+
+pipe = pipeline(
+    "automatic-speech-recognition",
+    model=model,
+    tokenizer=processor.tokenizer,
+    feature_extractor=processor.feature_extractor,
+    batch_size=1,
+    dtype=torch_dtype,
+    device=device,
+)
+
+app = FastAPI()
+
+
+async def transcribe_file(file_path):
+    start_time = time.time()
+    with torch.inference_mode():
+        result = pipe(file_path)  # Transcribe file
+    execution_time = round((time.time() - start_time), 2)
+    return result, execution_time
+
+
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile):
+    try:
+        file_path = await save_file(file, "incoming_files")
+        result, execution_time = await transcribe_file(file_path)
+        return {
+                "TranscribedRecord": result["text"], # type: ignore
+                "Timestamps": result.get("chunks", []), # type: ignore
+                "executionTime": f"{execution_time} sec"
+            }
+    except Exception as e:
+        return {"Error": str(e)}
+    
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8005)

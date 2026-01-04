@@ -1,0 +1,13 @@
+.idea/
+.install/
+.venv/
+models/
+__pycache__/
+mp3/
+incoming_files/
+transcribed_record/
+
+
+*.mp3
+ffmpeg.exe
+.env
