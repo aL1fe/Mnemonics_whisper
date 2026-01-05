@@ -2,10 +2,12 @@ from fastapi import FastAPI, UploadFile
 import torch
 import torchaudio
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import asyncio
 import time
 import torch.version
+import string
 
-from file_utils import save_file
+import file_utils
 
 
 if torch.cuda.is_available():
@@ -45,9 +47,11 @@ pipe = pipeline(
     model=model,
     tokenizer=processor.tokenizer,
     feature_extractor=processor.feature_extractor,
-    batch_size=1,
+    # batch_size=1,
     dtype=torch_dtype,
     device=device,
+    return_timestamps=False,
+    chunk_length_s=30
 )
 
 app = FastAPI()
@@ -55,19 +59,28 @@ app = FastAPI()
 
 async def transcribe_file(file_path):
     with torch.inference_mode():
-        result = pipe(file_path)  # Transcribe file
-    return result
+        start = time.perf_counter()
+        result = pipe(file_path)
+        duration = time.perf_counter() - start
+    return result, duration
 
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile):
+    FOLDER = "incoming_files"
     try:
-        file_path = await save_file(file, "incoming_files")
-        result = await transcribe_file(file_path)
-        return {"TranscribedRecord": result["text"]} # type: ignore
+        file_path = await file_utils.save_file(file, FOLDER)
+        if file_path is None: return {"Error": "Error processing file"}
+
+        result, duration = await transcribe_file(file_path)
+        await file_utils.delete_file(file, FOLDER)
+
+        return result["text"]  # type: ignore
+        return (result["text"]).strip().rstrip(string.punctuation).lower() # type: ignore
+        return {"time": f"{duration:.3f}s", "Text": result["text"]}  # type: ignore
     except Exception as e:
         return {"Error": str(e)}
-    
+
 
 if __name__ == "__main__":
     import uvicorn
