@@ -1,8 +1,6 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, File, UploadFile
 import torch
-import torchaudio
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-import asyncio
 import time
 import torch.version
 import string
@@ -60,13 +58,13 @@ app = FastAPI()
 async def transcribe_file(file_path):
     with torch.inference_mode():
         start = time.perf_counter()
-        result = pipe(file_path)
+        result = pipe(file_path)  #, max_new_tokens=5)
         duration = time.perf_counter() - start
     return result, duration
 
 
 @app.post("/upload/")
-async def upload_file(file: UploadFile):
+async def upload_file(file: UploadFile = File(...)):
     FOLDER = "incoming_files"
     try:
         file_path = await file_utils.save_file(file, FOLDER)
