@@ -39,17 +39,21 @@ model.generation_config.task = "transcribe"
 
 processor = AutoProcessor.from_pretrained(model_id)
 
-
 pipe = pipeline(
     "automatic-speech-recognition",
     model=model,
     tokenizer=processor.tokenizer,
     feature_extractor=processor.feature_extractor,
-    # batch_size=1,
     dtype=torch_dtype,
     device=device,
     return_timestamps=False,
-    chunk_length_s=30
+    chunk_length_s=30,
+    generate_kwargs={
+        "max_new_tokens": 128,
+        "no_repeat_ngram_size": 3,
+        "repetition_penalty": 1.2,  # default "repetition_penalty=0.0 no penalty
+        "temperature": 0.0,
+    }
 )
 
 app = FastAPI()
