@@ -4,6 +4,7 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import time
 import torch.version
 import string
+from pathlib import Path
 
 import file_utils
 
@@ -25,7 +26,7 @@ torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 # model_id = "openai/whisper-large-v3"
 # model_id = "openai/whisper-tiny"
-model_id = ".\\models\\models--openai--whisper-tiny\\snapshots\\169d4a4341b33bc18d8881c4b69c2e104e1cc0af"
+model_id = Path("models") / "whisper-tiny"
 
 model = AutoModelForSpeechSeq2Seq.from_pretrained(
     model_id, 
@@ -77,9 +78,7 @@ async def upload_file(file: UploadFile = File(...)):
         result, duration = await transcribe_file(file_path)
         await file_utils.delete_file(file, FOLDER)
 
-        return result["text"]  # type: ignore
         return (result["text"]).strip().rstrip(string.punctuation).lower() # type: ignore
-        return {"time": f"{duration:.3f}s", "Text": result["text"]}  # type: ignore
     except Exception as e:
         return {"Error": str(e)}
 
