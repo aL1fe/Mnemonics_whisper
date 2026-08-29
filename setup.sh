@@ -5,6 +5,10 @@ export HF_HUB_DISABLE_XET=1
 
 conda create -n mnemonics_whisper python=3.12 -y
 conda activate mnemonics_whisper
+if [ "$CONDA_DEFAULT_ENV" != "mnemonics_whisper" ]; then
+    echo -e "\e[31mError: failed to activate environment 'mnemonics_whisper'. Aborting.\e[0m"
+    return 1
+fi
 
 python -m pip install --upgrade pip
 
