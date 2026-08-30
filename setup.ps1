@@ -9,11 +9,15 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
 	pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 }
 else {
-    Write-Host "NVIDIA driver not found."  -ForegroundColor Yellow
+    Write-Host "NVIDIA driver not found." -ForegroundColor Yellow
 	pip install torch torchvision
 }
 
-pip install -r requirements.txt
+if (Test-Path requirements.txt) {
+    python -m pip install -r requirements.txt
+} else {
+    Write-Host "File requirements.txt not found." -ForegroundColor Red
+}
 
 mkdir models -Force | Out-Null
 hf download openai/whisper-tiny --local-dir ./models/whisper-tiny
